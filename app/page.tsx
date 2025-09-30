@@ -1023,15 +1023,73 @@ export default function Page() {
             <div className="grid-3">
               <div>
                 <label className="label">Camere (0..20)</label>
-                <input type="number" className="input" value={bedrooms} onChange={(e) => setBedrooms(clamp(parseInt(e.target.value || "0", 10), 0, 20))} />
+                <input 
+                  type="number" 
+                  className="input" 
+                  value={bedrooms} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBedrooms(0);
+                    } else {
+                      const parsed = parseInt(value, 10);
+                      if (!isNaN(parsed)) {
+                        setBedrooms(parsed);
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = parseInt(e.target.value || "0", 10);
+                    setBedrooms(clamp(value, 0, 20));
+                  }}
+                />
               </div>
               <div>
                 <label className="label">Bagni (0.5..20)</label>
-                <input type="number" step="0.5" className="input" value={baths} onChange={(e) => setBaths(clamp(parseFloat(e.target.value || "0"), 0.5, 20))} />
+                <input 
+                  type="number" 
+                  step="0.5" 
+                  className="input" 
+                  value={baths} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setBaths(0.5);
+                    } else {
+                      const parsed = parseFloat(value);
+                      if (!isNaN(parsed)) {
+                        setBaths(parsed);
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = parseFloat(e.target.value || "0.5");
+                    setBaths(clamp(value, 0.5, 20));
+                  }}
+                />
               </div>
               <div>
                 <label className="label">Ospiti (1..30)</label>
-                <input type="number" className="input" value={guests} onChange={(e) => setGuests(clamp(parseInt(e.target.value || "1", 10), 1, 30))} />
+                <input 
+                  type="number" 
+                  className="input" 
+                  value={guests} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === "") {
+                      setGuests(1);
+                    } else {
+                      const parsed = parseInt(value, 10);
+                      if (!isNaN(parsed)) {
+                        setGuests(parsed);
+                      }
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = parseInt(e.target.value || "1", 10);
+                    setGuests(clamp(value, 1, 30));
+                  }}
+                />
               </div>
             </div>
 
