@@ -938,10 +938,134 @@ export default function Page() {
             <button onClick={doGeocode} disabled={!consent || loadingGeo} className="button primary">
               {loadingGeo ? "Geocodifica..." : "Geocodifica (server)"}
             </button>
-            {/* Rimosso: testo diagnostico parametri minimi della geocodifica */}
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-              Chiamata: Stima AIRROI – parametri minimi: lat={lat || '—'}, lng={lng || '—'}, bedrooms={bedrooms}, baths={baths}, guests={guests}, currency={currency}
+            {geocodeChoices.length > 0 && (() => {
+              console.log('Rendering address selection with', geocodeChoices.length, 'choices');
+              return (
+                <div className="address-selection">
+                <div className="address-selection-header">
+                  <h3 className="address-selection-title">
+                    {geocodeChoices.length === 1 
+                      ? "Risultato trovato - Conferma l'indirizzo:" 
+                      : `${geocodeChoices.length} risultati trovati - Seleziona l'indirizzo corretto:`
+                    }
+                  </h3>
+                </div>
+                <div className="address-options">
+                  {geocodeChoices.map((r) => {
+                    const addressComponents = r.address_components || [];
+                    const types = r.types || [];
+                    const placeType = types.find((t: string) => 
+                      ['street_address', 'route', 'locality', 'administrative_area_level_1', 'country'].includes(t)
+                    ) || types[0] || 'address';
+                    
+                    // Estrai componenti utili dell'indirizzo
+                    const streetNumber = addressComponents.find((c: any) => c.types.includes('street_number'))?.long_name || '';
+                    const route = addressComponents.find((c: any) => c.types.includes('route'))?.long_name || '';
+                    const locality = addressComponents.find((c: any) => c.types.includes('locality'))?.long_name || '';
+                    const adminArea = addressComponents.find((c: any) => c.types.includes('administrative_area_level_1'))?.long_name || '';
+                    const country = addressComponents.find((c: any) => c.types.includes('country'))?.long_name || '';
+                    
+                    const shortAddress = [streetNumber, route].filter(Boolean).join(' ');
+                    const locationInfo = [locality, adminArea, country].filter(Boolean).join(', ');
+                    
+                    return (
+                      <div 
+                        key={r.place_id} 
+                        className={`address-option ${chosenPlaceId === r.place_id ? "selected" : ""}`}
+                        onClick={() => chooseGeocode(r.place_id)}
+                      >
+                        <input 
+                          type="radio" 
+                          name="address-choice" 
+                          checked={chosenPlaceId === r.place_id} 
+                          onChange={() => chooseGeocode(r.place_id)}
+                          className="address-option-radio"
+                        />
+                        <div className="address-option-content">
+                          <div className="address-option-main">
+                            {shortAddress || r.formatted_address}
+                          </div>
+                          <div className="address-option-details">
+                            {locationInfo && <div>{locationInfo}</div>}
+                            {r.geometry?.location && (
+                              <div>
+                                Coordinate: {r.geometry.location.lat.toFixed(6)}, {r.geometry.location.lng.toFixed(6)}
+                              </div>
+                            )}
+                          </div>
+                          <span className="address-option-type">
+                            {placeType.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Colonna centrale: Coordinate & Parametri */}
+          <div className="card">
+            <h2 className="section-title">2) Coordinate & Parametri</h2>
+            <div className="grid-2">
+              <div>
+                <label className="label">Latitudine (−90..90)</label>
+                <input className="input" inputMode="decimal" value={lat} readOnly placeholder="41.9028" />
+              </div>
+              <div>
+                <label className="label">Longitudine (−180..180)</label>
+                <input className="input" inputMode="decimal" value={lng} readOnly placeholder="12.4964" />
+              </div>
             </div>
+
+            <div className="grid-3">
+              <div>
+                <label className="label">Camere (0..20)</label>
+                <input type="number" className="input" value={bedrooms} onChange={(e) => setBedrooms(clamp(parseInt(e.target.value || "0", 10), 0, 20))} />
+              </div>
+              <div>
+                <label className="label">Bagni (0.5..20)</label>
+                <input type="number" step="0.5" className="input" value={baths} onChange={(e) => setBaths(clamp(parseFloat(e.target.value || "0"), 0.5, 20))} />
+              </div>
+              <div>
+                <label className="label">Ospiti (1..30)</label>
+                <input type="number" className="input" value={guests} onChange={(e) => setGuests(clamp(parseInt(e.target.value || "1", 10), 1, 30))} />
+              </div>
+            </div>
+
+            <div className="grid-3">
+              <div>
+                <label className="label">Valuta</label>
+                <select className="select" value={currency} onChange={(e) => setCurrency(e.target.value as any)}>
+                  <option value="native">native</option>
+                  <option value="usd">usd</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Tipo di struttura</label>
+                <select className="select" value={tipoStruttura} onChange={(e) => setTipoStruttura(e.target.value as any)}>
+                  <option value="Appartamento">Appartamento</option>
+                  <option value="Affittacamere">Affittacamere</option>
+                  <option value="B&B">B&B</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Stato dell’immobile</label>
+                <select className="select" value={statoImmobile} onChange={(e) => setStatoImmobile(e.target.value as any)}>
+                  <option value="Ottimo">Ottimo</option>
+                  <option value="Buono">Buono</option>
+                  <option value="Discreto">Discreto</option>
+                  <option value="Mediocre">Mediocre</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Colonna destra: Submit */}
+          <div className="card">
+            <h2 className="section-title">3) Stima</h2>
             <button 
               onClick={doEstimate} 
               disabled={!consent || loadingEstimate || errors.length > 0} 
@@ -960,22 +1084,19 @@ export default function Page() {
           <div className="card">
             <h3 className="section-title">Occupancy</h3>
             <p className="kpi">{fmtPercent(result?.occupancy)}</p>
-            {/* Rimosso: Valore calcolato come occupancy × 100 */}
           </div>
           <div className="card">
             <h3 className="section-title">ADR</h3>
             <p className="kpi">{fmtCurrency(result?.average_daily_rate)}</p>
-            {/* Rimosso: Prezzo medio giornaliero secondo AIRROI */}
           </div>
           <div className="card">
             <h3 className="section-title">Annunci comparabili</h3>
             <p className="kpi">{Array.isArray(result?.comparable_listings) ? result!.comparable_listings!.length : 0}</p>
-            {/* Rimosso: Numero di listing usati per la stima */}
+            <p className="hint">Numero di listing usati per la stima.</p>
           </div>
           <div className="card">
             <h3 className="section-title">Rendimento annuo lordo</h3>
             <p className="kpi highlight">{annualGrossYield == null ? "n/d" : fmtCurrency(annualGrossYield)}</p>
-            <p className="hint">Formula: 360 × occupancy × ADR × a × b (a={stateFactorMap[statoImmobile]}, b={typeFactorMap[tipoStruttura]}).</p>
           </div>
         </div>
 
