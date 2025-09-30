@@ -1140,11 +1140,53 @@ useEffect(() => { setGuestsInput(String(guests)); }, [guests]);
           <div className="chart">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis unit="%" />
-                <Tooltip formatter={(v: any) => `${Number(v).toFixed(1)}%`} />
-                <Bar dataKey="perc" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(192, 192, 192, 0.2)" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fill: '#b8b8b8', fontSize: 12 }}
+                  axisLine={{ stroke: 'rgba(192, 192, 192, 0.3)' }}
+                  tickLine={{ stroke: 'rgba(192, 192, 192, 0.3)' }}
+                />
+                <YAxis 
+                  unit="%" 
+                  tick={{ fill: '#b8b8b8', fontSize: 12 }}
+                  axisLine={{ stroke: 'rgba(192, 192, 192, 0.3)' }}
+                  tickLine={{ stroke: 'rgba(192, 192, 192, 0.3)' }}
+                />
+                <Tooltip 
+                  formatter={(v: any) => `${Number(v).toFixed(1)}%`}
+                  contentStyle={{
+                    backgroundColor: 'rgba(25, 25, 25, 0.95)',
+                    border: '1px solid rgba(192, 192, 192, 0.4)',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    boxShadow: '0 0 20px rgba(192, 192, 192, 0.3)',
+                    backdropFilter: 'blur(10px)'
+                  }}
+                  labelStyle={{ color: '#d3d3d3' }}
+                />
+                <Bar 
+                  dataKey="perc" 
+                  fill="url(#metallicGradient)"
+                  stroke="rgba(192, 192, 192, 0.8)"
+                  strokeWidth={1.5}
+                  radius={[4, 4, 0, 0]}
+                />
+                <defs>
+                  <linearGradient id="metallicGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f8f8ff" stopOpacity={0.9} />
+                    <stop offset="20%" stopColor="#e6e6fa" stopOpacity={0.8} />
+                    <stop offset="40%" stopColor="#d3d3d3" stopOpacity={0.7} />
+                    <stop offset="60%" stopColor="#c0c0c0" stopOpacity={0.8} />
+                    <stop offset="80%" stopColor="#a9a9a9" stopOpacity={0.7} />
+                    <stop offset="100%" stopColor="#808080" stopOpacity={0.8} />
+                  </linearGradient>
+                  <linearGradient id="goldAccent" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#ffd700" stopOpacity={0.3} />
+                    <stop offset="50%" stopColor="#ffed4e" stopOpacity={0.2} />
+                    <stop offset="100%" stopColor="#ffd700" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
               </BarChart>
             </ResponsiveContainer>
           </div>
