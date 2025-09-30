@@ -1,0 +1,77 @@
+Resoconto di compatibilità Netlify per Immoby
+
+1) Specifiche tecniche modificate
+- package.json
+  - Script build corretto a "next build" (rimosso "next export"), per allinearsi al deploy SSR gestito dal runtime/plugin di Next su Netlify.
+- next.config.cjs
+  - Rimosso: output: 'export' (lo static export non supporta API routes).
+  - Mantenuti: trailingSlash: true, compress, ottimizzazioni webpack e headers di sicurezza.
+- netlify.toml
+  - Publish directory impostata a: .next (necessaria per il runtime Next su Netlify).
+  - Rimosso redirect globale: "/* -> /index.html" (interferiva con il routing di Next e le API routes).
+  - Content-Security-Policy ampliata per includere:
+    - scripts: https://maps.googleapis.com
+    - styles: https://fonts.googleapis.com
+    - (eventuali altre fonti richieste dall’app)
+- Variabili d’ambiente
+  - Aggiunta su Netlify la chiave server-side: GOOGLE_MAPS_API_KEY (le API lato server la leggono da process.env.GOOGLE_MAPS_API_KEY).
+  - Mantenute le chiavi client-side:
+    - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (se necessario per script lato client)
+    - NEXT_PUBLIC_API_BASE_URL (impostata al dominio Netlify)
+  - Nota: le variabili che iniziano con NEXT_PUBLIC_ non sono segrete; GOOGLE_MAPS_API_KEY va gestita come secret.
+
+2) Problemi di compatibilità riscontrati
+- Conflitto tra static export e API routes
+  - Con output: 'export' non vengono supportate le API routes; l’app non produce correttamente la cartella "out" coerente con le funzionalità richieste.
+- Routing errato in produzione
+  - Il redirect "/* -> /index.html" forzava un fallback statico, mostrando un layout diverso e impedendo l’uso corretto delle rotte Next e delle API.
+- Content Security Policy troppo restrittiva
+  - Script di Google Maps e potenziali chiamate lato client venivano bloccati, causando malfunzionamenti (geocodifica, UI).
+- Variabili d’ambiente non allineate
+  - Il codice server usa GOOGLE_MAPS_API_KEY, ma era presente solo NEXT_PUBLIC_GOOGLE_MAPS_API_KEY; in produzione mancava la chiave server-side, generando "Google Maps API key non configurata".
+- Impostazioni Netlify non coerenti
+  - La Publish directory nel pannello era talvolta "out" (static export) invece di ".next" (SSR con plugin Next).
+
+3) Soluzioni implementate
+- Passaggio a deploy SSR con Netlify Functions
+  - Rimozione di output: 'export' e conferma della publish directory .next.
+  - Build command mantenuto a "npm run build" (Next build).
+- Ripristino routing corretto
+  - Eliminazione del redirect globale dalla configurazione Netlify.
+- Adeguamento della CSP
+  - Aggiunte maps.googleapis.com e fonts.googleapis.com per evitare blocchi.
+- Allineamento variabili d’ambiente
+  - Import su Netlify di GOOGLE_MAPS_API_KEY (secret) e delle NEXT_PUBLIC_* (non secret).
+- Procedura di deploy pulita
+  - Utilizzo di "Clear cache and deploy" per ricostruire il sito con le nuove configurazioni e variabili.
+- Aggiornamento repository
+  - Commit e push su main per sincronizzare package.json, next.config.cjs e netlify.toml.
+
+4) Test effettuati
+- Build locale
+  - Esecuzione "npm run build" completata senza errori; confermata compatibilità della configurazione.
+- Anteprima locale
+  - Avvio "npx next dev -p 8080" e verifica del flusso completo: indirizzo → geocodifica → parametri → stima.
+- Verifica post-deploy (indicazioni operative)
+  - Trigger "Clear cache and deploy" su Netlify.
+  - Controllo endpoint: /api/health deve riportare google_maps_configured: true.
+  - DevTools: assenza errori CSP/fetch; geocodifica e stima funzionanti.
+- Routing e CSP
+  - Confermato che senza redirect globale il plugin gestisce correttamente pagine e API.
+  - CSP aggiornata non blocca script essenziali.
+
+5) Compromessi e limitazioni attuali
+- Serverless/SSR
+  - Le API routes girano come Netlify Functions: possibili latenze da cold start e limiti del runtime serverless.
+- Esposizione variabili client-side
+  - Le variabili NEXT_PUBLIC_* sono nel bundle e visibili; si raccomanda limitazione dei referrer per la chiave Google Maps nella Google Cloud Console (consentire solo immoby.netlify.app).
+- Dipendenza dal runtime/plugin di Next
+  - La publish directory ".next" richiede coerenza tra netlify.toml e pannello UI; configurazioni errate nel pannello sovrascrivono il file.
+- Rinuncia allo static export
+  - Senza output: 'export' non si produce la cartella "out"; si guadagnano API routes ma si perde la natura "full static". Un futuro passaggio a statico richiederebbe rimozione/spostamento delle API.
+
+Checklist operativa (rapida)
+- Netlify → Build settings: Build command = npm run build; Publish directory = .next.
+- Netlify → Environment: importare GOOGLE_MAPS_API_KEY (secret) + NEXT_PUBLIC_* (non secret).
+- Netlify → Deploys: Trigger "Clear cache and deploy".
+- Post-deploy: UI corretta; /api/health → google_maps_configured: true; geocodifica/stima OK; nessun errore CSP/fetch.

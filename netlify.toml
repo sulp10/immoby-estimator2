@@ -1,0 +1,17 @@
+# Netlify configuration for Next.js SSR with API routes
+# Aligns with guidance in public/mb
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[plugins]
+  package = "@netlify/plugin-nextjs"
+
+# Example headers (CSP can be expanded as needed)
+# [[headers]]
+#   for = "/"
+#   [headers.values]
+#     Content-Security-Policy = "default-src 'self'; script-src 'self' https://maps.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://maps.googleapis.com; connect-src 'self'"
+
+# Remove any global redirect like /* -> /index.html to avoid breaking Next routing

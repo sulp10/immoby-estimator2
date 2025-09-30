@@ -1,0 +1,27 @@
+{
+  "name": "webapp_estimator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@swc/helpers": "^0.5.17",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "next": "14.2.10",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "^2.10.0",
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "devDependencies": {
+    "@netlify/plugin-nextjs": "^5.8.0",
+    "@types/node": "20.19.18",
+    "@types/react": "18.3.25",
+    "typescript": "5.9.2"
+  }
+}
