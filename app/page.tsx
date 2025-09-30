@@ -10,21 +10,35 @@ import html2canvas from "html2canvas";
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 const monthsIT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
-// Persist some fields locally (no secrets)
+// Persist some fields locally (no secrets) - SSR safe
 const useLocalStorage = <T,>(key: string, initial: T) => {
-  const [value, setValue] = useState<T>(() => {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? (JSON.parse(raw) as T) : initial;
-    } catch {
-      return initial;
-    }
-  });
+  const [value, setValue] = useState<T>(initial);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Hydrate from localStorage after component mounts
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {}
-  }, [key, value]);
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        setValue(JSON.parse(raw) as T);
+      }
+    } catch {
+      // Keep initial value on error
+    }
+    setIsHydrated(true);
+  }, [key]);
+
+  // Save to localStorage when value changes (only after hydration)
+  useEffect(() => {
+    if (isHydrated) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+  }, [key, value, isHydrated]);
+
   return [value, setValue] as const;
 };
 
@@ -645,19 +659,19 @@ export default function Page() {
   const [clientId, setClientId] = useLocalStorage<string>("client_id", "");
 
   useEffect(() => {
+    setIsHydrated(true);
+    
+    // Generate client ID only after hydration to avoid SSR mismatch
     if (!clientId) {
       try {
         // Genera un identificatore anonimo stabile lato client
-        setClientId((crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        const newId = (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        setClientId(newId);
       } catch {
         setClientId(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
       }
     }
-  }, [clientId]);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  }, [clientId, setClientId]);
 
   // Results
   const [result, setResult] = useState<AirRoiEstimate | null>(null);
@@ -1023,73 +1037,15 @@ export default function Page() {
             <div className="grid-3">
               <div>
                 <label className="label">Camere (0..20)</label>
-                <input 
-                  type="number" 
-                  className="input" 
-                  value={bedrooms} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBedrooms(0);
-                    } else {
-                      const parsed = parseInt(value, 10);
-                      if (!isNaN(parsed)) {
-                        setBedrooms(parsed);
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = parseInt(e.target.value || "0", 10);
-                    setBedrooms(clamp(value, 0, 20));
-                  }}
-                />
+                <input type="number" className="input" value={bedrooms} onChange={(e) => setBedrooms(clamp(parseInt(e.target.value || "0", 10), 0, 20))} />
               </div>
               <div>
                 <label className="label">Bagni (0.5..20)</label>
-                <input 
-                  type="number" 
-                  step="0.5" 
-                  className="input" 
-                  value={baths} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setBaths(0.5);
-                    } else {
-                      const parsed = parseFloat(value);
-                      if (!isNaN(parsed)) {
-                        setBaths(parsed);
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = parseFloat(e.target.value || "0.5");
-                    setBaths(clamp(value, 0.5, 20));
-                  }}
-                />
+                <input type="number" step="0.5" className="input" value={baths} onChange={(e) => setBaths(clamp(parseFloat(e.target.value || "0"), 0.5, 20))} />
               </div>
               <div>
                 <label className="label">Ospiti (1..30)</label>
-                <input 
-                  type="number" 
-                  className="input" 
-                  value={guests} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (value === "") {
-                      setGuests(1);
-                    } else {
-                      const parsed = parseInt(value, 10);
-                      if (!isNaN(parsed)) {
-                        setGuests(parsed);
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = parseInt(e.target.value || "1", 10);
-                    setGuests(clamp(value, 1, 30));
-                  }}
-                />
+                <input type="number" className="input" value={guests} onChange={(e) => setGuests(clamp(parseInt(e.target.value || "1", 10), 1, 30))} />
               </div>
             </div>
 
