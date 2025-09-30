@@ -23,9 +23,32 @@ export async function GET(req: Request) {
     path: "/api/geocode",
   }, { status: 500 });
 
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`;
+
+  const fetchWithTimeout = async (timeoutMs: number) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      clearTimeout(timeout);
+      return res;
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
+  };
+
   try {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`;
-    const res = await fetch(url, { cache: "no-store" });
+    // Primo tentativo con timeout
+    let res: Response;
+    try {
+      res = await fetchWithTimeout(8000);
+    } catch (e1: any) {
+      // Piccolo backoff e secondo tentativo
+      await new Promise((r) => setTimeout(r, 500));
+      res = await fetchWithTimeout(8000);
+    }
+
     const data = await res.json();
     if (data.status !== "OK") {
       const msg = data.error_message || data.status || "Errore geocodifica";
@@ -53,6 +76,8 @@ export async function GET(req: Request) {
       error: "Bad Gateway",
       message: `Errore di rete verso Google: ${err?.message || err}`,
       path: "/api/geocode",
+      url,
+      hint: "Verifica connettività uscente, eventuale proxy aziendale (HTTP(S)_PROXY) o blocchi firewall verso maps.googleapis.com"
     }, { status: 502 });
   }
 }

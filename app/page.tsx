@@ -10,35 +10,23 @@ import html2canvas from "html2canvas";
 const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 const monthsIT = ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"];
 
-// Persist some fields locally (no secrets) - SSR safe
+// Persist some fields locally (no secrets)
 const useLocalStorage = <T,>(key: string, initial: T) => {
-  const [value, setValue] = useState<T>(initial);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Hydrate from localStorage after component mounts
-  useEffect(() => {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === "undefined") return initial;
     try {
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        setValue(JSON.parse(raw) as T);
-      }
+      const raw = window.localStorage.getItem(key);
+      return raw != null ? (JSON.parse(raw) as T) : initial;
     } catch {
-      // Keep initial value on error
+      return initial;
     }
-    setIsHydrated(true);
-  }, [key]);
-
-  // Save to localStorage when value changes (only after hydration)
+  });
   useEffect(() => {
-    if (isHydrated) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch {
-        // Ignore localStorage errors
-      }
-    }
-  }, [key, value, isHydrated]);
-
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+  }, [key, value]);
   return [value, setValue] as const;
 };
 
@@ -642,8 +630,16 @@ export default function Page() {
 
   // Listing params
   const [bedrooms, setBedrooms] = useLocalStorage<number>("bedrooms", 2);
-  const [baths, setBaths] = useLocalStorage<number>("baths", 1.5);
-  const [guests, setGuests] = useLocalStorage<number>("guests", 4);
+const [baths, setBaths] = useLocalStorage<number>("baths", 1.5);
+const [guests, setGuests] = useLocalStorage<number>("guests", 4);
+// Stati di input come stringhe per permettere campo vuoto durante l'editing
+const [bedroomsInput, setBedroomsInput] = useState<string>(String(bedrooms));
+const [bathsInput, setBathsInput] = useState<string>(String(baths));
+const [guestsInput, setGuestsInput] = useState<string>(String(guests));
+useEffect(() => { setBedroomsInput(String(bedrooms)); }, [bedrooms]);
+useEffect(() => { setBathsInput(String(baths)); }, [baths]);
+useEffect(() => { setGuestsInput(String(guests)); }, [guests]);
+
   const [currency, setCurrency] = useLocalStorage<"native" | "usd">("currency", "native");
   const [tipoStruttura, setTipoStruttura] = useLocalStorage<TipoStruttura>("tipoStruttura", "Appartamento");
   const [statoImmobile, setStatoImmobile] = useLocalStorage<StatoImmobile>("statoImmobile", "Buono");
@@ -659,19 +655,19 @@ export default function Page() {
   const [clientId, setClientId] = useLocalStorage<string>("client_id", "");
 
   useEffect(() => {
-    setIsHydrated(true);
-    
-    // Generate client ID only after hydration to avoid SSR mismatch
     if (!clientId) {
       try {
         // Genera un identificatore anonimo stabile lato client
-        const newId = (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        setClientId(newId);
+        setClientId((crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
       } catch {
         setClientId(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
       }
     }
-  }, [clientId, setClientId]);
+  }, [clientId]);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Results
   const [result, setResult] = useState<AirRoiEstimate | null>(null);
@@ -682,18 +678,22 @@ export default function Page() {
 
   // --- Validation ---
   const errors = useMemo(() => {
-    // Durante SSR, non validare per evitare errori di hydration
-    if (!isHydrated) return [];
-    
     const errs: string[] = [];
-    if (lat === "" || isNaN(Number(lat)) || Number(lat) < -90 || Number(lat) > 90) errs.push("La latitudine deve essere compresa tra -90 e 90.");
-    if (lng === "" || isNaN(Number(lng)) || Number(lng) < -180 || Number(lng) > 180) errs.push("La longitudine deve essere compresa tra -180 e 180.");
-    if (!Number.isInteger(bedrooms) || bedrooms < 0 || bedrooms > 20) errs.push("Il numero di camere deve essere tra 0 e 20.");
-    if (isNaN(baths) || baths < 0.5 || baths > 20) errs.push("Il numero di bagni deve essere compreso tra 0.5 e 20.");
-    if (!Number.isInteger(guests) || guests < 1 || guests > 30) errs.push("Il numero massimo di ospiti deve essere tra 1 e 30.");
-    // Enum fields come da select: sempre validi
+    if (!isHydrated) return errs;
+    // validazione coordinate
+    const nlat = Number(lat);
+    const nlng = Number(lng);
+    if (!Number.isFinite(nlat) || nlat < -90 || nlat > 90) errs.push("Latitudine non valida (deve essere tra −90 e 90).");
+    if (!Number.isFinite(nlng) || nlng < -180 || nlng > 180) errs.push("Longitudine non valida (deve essere tra −180 e 180).");
+    // validazione parametri: considerare vuoto
+    if (bedroomsInput === "") errs.push("Inserisci il numero di camere.");
+    else if (!Number.isInteger(bedrooms) || bedrooms < 0 || bedrooms > 20) errs.push("Il numero di camere deve essere tra 0 e 20.");
+    if (bathsInput === "") errs.push("Inserisci il numero di bagni.");
+    else if (isNaN(baths) || baths < 0.5 || baths > 20) errs.push("Il numero di bagni deve essere compreso tra 0.5 e 20.");
+    if (guestsInput === "") errs.push("Inserisci il numero di ospiti.");
+    else if (!Number.isInteger(guests) || guests < 1 || guests > 30) errs.push("Il numero massimo di ospiti deve essere tra 1 e 30.");
     return errs;
-  }, [isHydrated, lat, lng, bedrooms, baths, guests]);
+  }, [isHydrated, lat, lng, bedrooms, baths, guests, bedroomsInput, bathsInput, guestsInput]);
 
   useEffect(() => {
     console.log('Validation check - lat:', lat, 'lng:', lng, 'errors:', errors);
@@ -919,7 +919,7 @@ export default function Page() {
         </div>
 
         {/* Consenso Privacy */}
-        <div className="card" style={{ borderColor: consent ? '#4caf50' : '#e53935' }}>
+        <div className="card" style={isHydrated ? { borderColor: consent ? '#4caf50' : '#e53935' } : undefined}>
           <h2 className="section-title">Consenso Privacy</h2>
           <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <input
@@ -932,9 +932,9 @@ export default function Page() {
               Senza consenso non è possibile eseguire geolocalizzazione né la stima.
             </span>
           </label>
-          {!consent && (
+          {!isHydrated ? null : (!consent && (
             <p className="status-err" style={{ marginTop: '6px' }}>Devi acconsentire alla Privacy Policy per procedere.</p>
-          )}
+          ))}
         </div>
 
         {/* Form */}
@@ -949,8 +949,8 @@ export default function Page() {
               value={address}
               onChange={(e) => setAddress(e.target.value)}
             />
-            <button onClick={doGeocode} disabled={!consent || loadingGeo} className="button primary">
-              {loadingGeo ? "Geocodifica..." : "Geocodifica (server)"}
+            <button onClick={doGeocode} disabled={isHydrated ? (!consent || loadingGeo) : undefined} className="button primary">
+              {loadingGeo ? "Geocodifica..." : "Localizza immobile"}
             </button>
             {geocodeChoices.length > 0 && (() => {
               console.log('Rendering address selection with', geocodeChoices.length, 'choices');
@@ -1037,15 +1037,33 @@ export default function Page() {
             <div className="grid-3">
               <div>
                 <label className="label">Camere (0..20)</label>
-                <input type="number" className="input" value={bedrooms} onChange={(e) => setBedrooms(clamp(parseInt(e.target.value || "0", 10), 0, 20))} />
+                <input type="number" className="input" value={bedroomsInput} placeholder="es. 2" onChange={(e) => {
+                  const v = e.target.value;
+                  setBedroomsInput(v);
+                  if (v === "") return; // lascia vuoto durante editing
+                  const n = parseInt(v, 10);
+                  if (!Number.isNaN(n)) setBedrooms(clamp(n, 0, 20));
+                }} />
               </div>
               <div>
                 <label className="label">Bagni (0.5..20)</label>
-                <input type="number" step="0.5" className="input" value={baths} onChange={(e) => setBaths(clamp(parseFloat(e.target.value || "0"), 0.5, 20))} />
+                <input type="number" step="0.5" className="input" value={bathsInput} placeholder="es. 1.5" onChange={(e) => {
+                  const v = e.target.value;
+                  setBathsInput(v);
+                  if (v === "") return;
+                  const n = parseFloat(v);
+                  if (!Number.isNaN(n)) setBaths(clamp(n, 0.5, 20));
+                }} />
               </div>
               <div>
                 <label className="label">Ospiti (1..30)</label>
-                <input type="number" className="input" value={guests} onChange={(e) => setGuests(clamp(parseInt(e.target.value || "1", 10), 1, 30))} />
+                <input type="number" className="input" value={guestsInput} placeholder="es. 4" onChange={(e) => {
+                  const v = e.target.value;
+                  setGuestsInput(v);
+                  if (v === "") return;
+                  const n = parseInt(v, 10);
+                  if (!Number.isNaN(n)) setGuests(clamp(n, 1, 30));
+                }} />
               </div>
             </div>
 
@@ -1082,14 +1100,13 @@ export default function Page() {
             <h2 className="section-title">3) Stima</h2>
             <button 
               onClick={doEstimate} 
-              disabled={!consent || loadingEstimate || errors.length > 0} 
+              disabled={isHydrated ? (!consent || loadingEstimate || errors.length > 0 || bedroomsInput === "" || bathsInput === "" || guestsInput === "") : undefined} 
               className="button primary"
-              onMouseEnter={() => console.log('Button state - loadingEstimate:', loadingEstimate, 'errors.length:', errors.length, 'disabled:', !consent || loadingEstimate || errors.length > 0)}
             >
-              {loadingEstimate ? "Richiesta in corso..." : "Calcola stima AIRROI"}
+              {loadingEstimate ? "Richiesta in corso..." : "Calcola guadagni"}
             </button>
-            {status && <p className="status-ok">{status}</p>}
-            {error && <p className="status-err">{error}</p>}
+            {isHydrated && status && <p className="status-ok">{status}</p>}
+            {isHydrated && error && <p className="status-err">{error}</p>}
           </div>
         </div>
 
