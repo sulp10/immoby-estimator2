@@ -928,7 +928,7 @@ useEffect(() => { setGuestsInput(String(guests)); }, [guests]);
               onChange={(e) => { const v = e.target.checked; setConsent(v); recordConsent(v); }}
             />
             <span>
-              Confermo di aver letto e accettato la <a href="/mb/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+              Confermo di aver letto e accettato la <a href="/privacy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
               Senza consenso non è possibile eseguire geolocalizzazione né la stima.
             </span>
           </label>
