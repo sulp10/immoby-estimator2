@@ -4,6 +4,19 @@ export const dynamic = "force-dynamic";
 
 import { neon } from "@neondatabase/serverless";
 
+async function ensureTable(sql: any) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS privacy_consent (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT,
+      user_agent TEXT,
+      address TEXT,
+      ip TEXT,
+      consented_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -18,18 +31,7 @@ export async function POST(req: Request) {
     }
 
     const sql = neon(connectionString);
-
-    // Ensure table exists
-    await sql`
-      CREATE TABLE IF NOT EXISTS privacy_consent (
-        id BIGSERIAL PRIMARY KEY,
-        user_id TEXT,
-        user_agent TEXT,
-        address TEXT,
-        ip TEXT,
-        consented_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `;
+    await ensureTable(sql);
 
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
     await sql`
@@ -38,6 +40,29 @@ export async function POST(req: Request) {
     `;
 
     return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      return NextResponse.json({ error: "DATABASE_URL non configurato" }, { status: 500 });
+    }
+
+    const sql = neon(connectionString);
+    await ensureTable(sql);
+
+    const rows = await sql`
+      SELECT id, user_id, user_agent, address, ip, consented_at
+      FROM privacy_consent
+      ORDER BY consented_at DESC
+      LIMIT 10
+    `;
+
+    return NextResponse.json({ count: rows.length, rows });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
   }
