@@ -5,7 +5,7 @@
   command = "npm run build"
   publish = ".next"
 
-[plugins]
+[[plugins]]
   package = "@netlify/plugin-nextjs"
 
 # Example headers (CSP can be expanded as needed)
