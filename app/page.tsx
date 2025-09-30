@@ -693,7 +693,7 @@ export default function Page() {
   }, [errors, lat, lng]);
 
   // --- Geocoding via backend proxy ---
-  const recordConsent = async (next: boolean) => {
+  const recordConsent = async (next: boolean, overrideAddress?: string) => {
     if (!next) return;
     try {
       await fetch('/api/consent', {
@@ -703,7 +703,7 @@ export default function Page() {
           consent: true,
           userId: clientId || undefined,
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-          address: address || '',
+          address: (overrideAddress ?? address) || '',
         }),
       });
     } catch (e) {
@@ -752,6 +752,9 @@ export default function Page() {
         const loc = result.geometry.location;
         setLat(String(loc.lat));
         setLng(String(loc.lng));
+        // Imposta l'indirizzo formattato e aggiorna il consenso con l'indirizzo
+        setAddress(result.formatted_address);
+        recordConsent(true, result.formatted_address);
         setStatus("Risultato trovato. Conferma la selezione o modifica le coordinate.");
       } else {
         setStatus(`Trovati ${data.results.length} risultati: seleziona quello corretto.`);
@@ -772,6 +775,9 @@ export default function Page() {
     setLat(String(loc.lat));
     setLng(String(loc.lng));
     setChosenPlaceId(placeId);
+    // Aggiorna l'indirizzo formattato e registra nuovamente il consenso con l'indirizzo
+    setAddress(chosen.formatted_address);
+    recordConsent(true, chosen.formatted_address);
     setStatus("Indirizzo selezionato. Coordinate impostate.");
     setError("");
   };
