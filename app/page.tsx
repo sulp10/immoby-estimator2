@@ -696,12 +696,23 @@ export default function Page() {
   const recordConsent = async (next: boolean, overrideAddress?: string) => {
     if (!next) return;
     try {
+      // Assicura uno user_id stabile anche se non è stato ancora inizializzato
+      let uid = clientId;
+      if (!uid && typeof window !== "undefined") {
+        uid = localStorage.getItem("client_id") || "";
+        if (!uid) {
+          uid = (crypto as any)?.randomUUID ? (crypto as any).randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          localStorage.setItem("client_id", uid);
+        }
+        setClientId(uid);
+      }
+
       await fetch('/api/consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           consent: true,
-          userId: clientId || undefined,
+          userId: uid || undefined,
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
           address: (overrideAddress ?? address) || '',
         }),

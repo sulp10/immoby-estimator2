@@ -33,11 +33,18 @@ export async function POST(req: Request) {
     // Ensure unique index on user_id for upsert
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS privacy_consent_user_id_idx ON privacy_consent(user_id)`;
 
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
-    // Upsert by user_id: if a record exists for this user, update it with the latest address/user_agent/ip
+    // Ricava IP reale anche in deploy SSR (Netlify/Edge possono usarlo)
+    const forwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "";
+    const ip = forwardedFor.split(",")[0].trim();
+
+    // Normalizza indirizzo: evita null inserendo stringa vuota
+    const normalizedAddress = typeof address === "string" ? address : "";
+    const normalizedUserId = typeof userId === "string" && userId.trim() ? userId.trim() : null;
+
+    // Upsert by user_id: se esiste il record, aggiorna con dati più recenti
     await sql`
       INSERT INTO privacy_consent (user_id, user_agent, address, ip)
-      VALUES (${userId || null}, ${userAgent || null}, ${address || null}, ${ip || null})
+      VALUES (${normalizedUserId}, ${userAgent || null}, ${normalizedAddress}, ${ip || null})
       ON CONFLICT (user_id) DO UPDATE SET
         user_agent = EXCLUDED.user_agent,
         address = EXCLUDED.address,
