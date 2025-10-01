@@ -40,9 +40,9 @@ export async function POST(req: Request) {
 
     // Upsert manuale: evita dipendenza da indice unico per ON CONFLICT
     if (normalizedUserId) {
-      const existing = await sql<{ id: number }[]>`
+      const existing = await sql`
         SELECT id FROM privacy_consent WHERE user_id = ${normalizedUserId} LIMIT 1
-      `;
+      ` as { id: number }[];
       if (existing.length > 0) {
         await sql`
           UPDATE privacy_consent
